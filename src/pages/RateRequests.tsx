@@ -23,13 +23,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Edit, Plus, FileText, Loader2, Check, History } from "lucide-react";
+import { Edit, Plus, FileText, Loader2, Check, History, Mail, Printer } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
-import { useRateRequests, useUpdateRateRequest, useRateRequest } from "@/hooks/useSales";
+import { useRateRequests, useUpdateRateRequest, useRateRequest, useSendRateRequestEmail } from "@/hooks/useSales";
 import { RateRequest } from "@/services/api";
 import { rateRequestApi } from "@/services/api/sales";
 import { SalesActivityLogModal } from "@/components/sales/SalesActivityLogModal";
+import { SendEmailModal } from "@/components/common/SendEmailModal";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 export default function RateRequests() {
@@ -42,6 +44,8 @@ export default function RateRequests() {
   const [showReceivedConfirm, setShowReceivedConfirm] = useState(false);
   const [rateRequestToMarkReceived, setRateRequestToMarkReceived] = useState<RateRequest | null>(null);
   const [historyRequestId, setHistoryRequestId] = useState<number | null>(null);
+  const [emailRateRequest, setEmailRateRequest] = useState<RateRequest | null>(null);
+  const { user } = useAuth();
 
   const { data: historyDetail, refetch: refetchHistory } = useRateRequest(historyRequestId || 0);
 
@@ -57,13 +61,14 @@ export default function RateRequests() {
     }
   };
 
-  const { data, isLoading, error } = useRateRequests({
+  const { data, isLoading, error, refetch } = useRateRequests({
     pageNumber: currentPage,
     pageSize: parseInt(entriesPerPage, 10) || 10,
     searchTerm: appliedSearch || undefined,
   });
 
   const updateMutation = useUpdateRateRequest();
+  const sendEmailMutation = useSendRateRequestEmail();
 
   const rateRequests = data?.items || [];
   const totalCount = data?.totalCount || 0;
@@ -245,8 +250,31 @@ export default function RateRequests() {
                               size="icon"
                               className="h-8 w-8 btn-success rounded"
                               onClick={() => navigate(`/sales/rate-requests/${request.id}/edit`)}
+                              title="Edit"
                             >
                               <Edit className="h-4 w-4" />
+                            </Button>
+                          </PermissionGate>
+                          <PermissionGate permission="ratereq_view">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 bg-lime-600 hover:bg-lime-700 text-white rounded"
+                              onClick={() => window.open(`/sales/rate-requests/${request.id}/print`, "_blank")}
+                              title="Print / View PDF"
+                            >
+                              <Printer className="h-4 w-4" />
+                            </Button>
+                          </PermissionGate>
+                          <PermissionGate permission="ratereq_add">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 bg-blue-500 hover:bg-blue-600 text-white rounded"
+                              onClick={() => setEmailRateRequest(request)}
+                              title="Send Email"
+                            >
+                              <Mail className="h-4 w-4" />
                             </Button>
                           </PermissionGate>
                           {(request.requestStatus === "Pending" || request.requestStatus === "Sent") && (
@@ -374,6 +402,24 @@ export default function RateRequests() {
         entries={historyDetail?.activityLog ?? []}
         onAdd={handleAddHistoryNote}
       />
+
+      {emailRateRequest && (
+        <SendEmailModal
+          open={!!emailRateRequest}
+          onOpenChange={(open) => !open && setEmailRateRequest(null)}
+          recipientEmail={emailRateRequest.vendorEmail || ""}
+          recipientLabel="Vendor"
+          subject={`Rate Request ${emailRateRequest.rateRequestNo}`}
+          currentUserEmail={user?.email ?? ""}
+          onSend={async (req) => {
+            await sendEmailMutation.mutateAsync({ id: emailRateRequest.id, data: req });
+            setEmailRateRequest(null);
+            refetch();
+          }}
+          isSending={sendEmailMutation.isPending}
+          title={`Send Rate Request ${emailRateRequest.rateRequestNo}`}
+        />
+      )}
     </MainLayout>
   );
 }

@@ -36,6 +36,7 @@ const Leads = lazy(() => import("./pages/Leads"));
 const LeadForm = lazy(() => import("./pages/LeadForm"));
 const RateRequests = lazy(() => import("./pages/RateRequests"));
 const RateRequestForm = lazy(() => import("./pages/RateRequestForm"));
+const RateRequestPrintView = lazy(() => import("./pages/RateRequestPrintView"));
 const Quotations = lazy(() => import("./pages/Quotations"));
 const QuotationForm = lazy(() => import("./pages/QuotationForm"));
 const QuotationView = lazy(() => import("./pages/QuotationView"));
@@ -243,6 +244,16 @@ const AppRoutes = () => (
       <Route path="/sales/rate-requests/:id/edit" element={
         <ProtectedRoute permission="ratereq_edit">
           <RateRequestForm />
+        </ProtectedRoute>
+      } />
+      <Route path="/sales/rate-requests/:id/view" element={
+        <ProtectedRoute permission="ratereq_view">
+          <RateRequestPrintView />
+        </ProtectedRoute>
+      } />
+      <Route path="/sales/rate-requests/:id/print" element={
+        <ProtectedRoute permission="ratereq_view">
+          <RateRequestPrintView />
         </ProtectedRoute>
       } />
       <Route path="/sales/quotations" element={

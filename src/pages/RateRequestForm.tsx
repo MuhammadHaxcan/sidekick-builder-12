@@ -8,18 +8,21 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { Loader2, ArrowLeft, History } from "lucide-react";
+import { Loader2, ArrowLeft, History, Printer, Mail } from "lucide-react";
 import {
   useRateRequest,
   useLead,
   useCreateRateRequest,
   useUpdateRateRequest,
+  useSendRateRequestEmail,
 } from "@/hooks/useSales";
 import { useAllCustomerCategoryTypes } from "@/hooks/useSettings";
 import { useAllCreditors } from "@/hooks/useCustomers";
 import { LockedLeadSections } from "@/components/leads/LockedLeadSections";
 import { SalesActivityLog } from "@/components/sales/SalesActivityLog";
 import { SalesActivityLogModal } from "@/components/sales/SalesActivityLogModal";
+import { SendEmailModal } from "@/components/common/SendEmailModal";
+import { useAuth } from "@/contexts/AuthContext";
 import { rateRequestApi } from "@/services/api/sales";
 import { useSalespersonLookup } from "@/hooks/useSalespersons";
 
@@ -69,6 +72,10 @@ export default function RateRequestForm() {
   const [internalNotes, setInternalNotes] = useState<string>("");
   const [salesperson, setSalesperson] = useState<string>("");
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+
+  const { user } = useAuth();
+  const sendEmailMutation = useSendRateRequestEmail();
 
   const handleAddNote = async (note: string) => {
     if (!rateRequestId) return;
@@ -206,10 +213,28 @@ export default function RateRequestForm() {
             )}
           </div>
           {isEditing && rateRequestId && (
-            <Button variant="outline" onClick={() => setHistoryOpen(true)}>
-              <History className="h-4 w-4 mr-2" />
-              History
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                className="border-lime-600 text-lime-700 hover:bg-lime-50"
+                onClick={() => window.open(`/sales/rate-requests/${rateRequestId}/print`, "_blank")}
+              >
+                <Printer className="h-4 w-4 mr-2" />
+                View PDF
+              </Button>
+              <Button
+                variant="outline"
+                className="border-blue-600 text-blue-700 hover:bg-blue-50"
+                onClick={() => setEmailModalOpen(true)}
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                Send Email
+              </Button>
+              <Button variant="outline" onClick={() => setHistoryOpen(true)}>
+                <History className="h-4 w-4 mr-2" />
+                History
+              </Button>
+            </div>
           )}
         </div>
 
@@ -391,6 +416,23 @@ export default function RateRequestForm() {
           title={`Rate Request History${rateRequest?.rateRequestNo ? ` — ${rateRequest.rateRequestNo}` : ""}`}
           entries={rateRequest?.activityLog ?? []}
           onAdd={handleAddNote}
+        />
+      )}
+      {isEditing && rateRequestId && (
+        <SendEmailModal
+          open={emailModalOpen}
+          onOpenChange={setEmailModalOpen}
+          recipientEmail={vendorEmail}
+          recipientLabel="Vendor"
+          subject={`Rate Request ${rateRequest?.rateRequestNo ?? ""}`}
+          currentUserEmail={user?.email ?? ""}
+          onSend={async (req) => {
+            await sendEmailMutation.mutateAsync({ id: rateRequestId, data: req });
+            setEmailModalOpen(false);
+            refetchRateRequest();
+          }}
+          isSending={sendEmailMutation.isPending}
+          title={`Send Rate Request ${rateRequest?.rateRequestNo ?? ""}`}
         />
       )}
     </MainLayout>
